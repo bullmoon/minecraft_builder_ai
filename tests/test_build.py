@@ -107,6 +107,54 @@ class TestLoadConfig(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "surface_search_above"):
             load_config(filename)
 
+    def test_valid_gate_config(self):
+        content = VALID_CONFIG.replace(
+            "type = wall",
+            "type = gate",
+        ) + (
+            "\n[gate]\n"
+            "opening_width = 4\n"
+            "opening_height = 4\n"
+        )
+
+        filename = self.create_config(content)
+        settings = load_config(filename)
+
+        self.assertEqual(settings["type"], "gate")
+        self.assertEqual(settings["width"], 12)
+        self.assertEqual(settings["height"], 5)
+        self.assertEqual(settings["opening_width"], 4)
+        self.assertEqual(settings["opening_height"], 4)
+
+    def test_opening_width_must_be_positive(self):
+        content = VALID_CONFIG.replace(
+            "type = wall",
+            "type = gate",
+        ) + (
+            "\n[gate]\n"
+            "opening_width = 0\n"
+            "opening_height = 4\n"
+        )
+
+        filename = self.create_config(content)
+
+        with self.assertRaisesRegex(ValueError, "opening_width"):
+            load_config(filename)
+
+    def test_opening_must_fit_inside_building(self):
+        content = VALID_CONFIG.replace(
+            "type = wall",
+            "type = gate",
+        ) + (
+            "\n[gate]\n"
+            "opening_width = 12\n"
+            "opening_height = 4\n"
+        )
+
+        filename = self.create_config(content)
+
+        with self.assertRaises(ValueError):
+            load_config(filename)
 
 if __name__ == "__main__":
     unittest.main()

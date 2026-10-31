@@ -105,3 +105,91 @@ def build_wall(mc: MinecraftRcon, settings):
     print(f"Finished: {built} of {width} columns built.")
     return 0 if built == width else 1
 
+
+def build_gate(mc: MinecraftRcon, settings):
+    px, py, pz = mc.get_player_position(PLAYER)
+    yaw, _pitch = mc.get_player_rotation(PLAYER)
+
+    yaw_rad = radians(yaw)
+    forward_x = -sin(yaw_rad)
+    forward_z = cos(yaw_rad)
+
+    center_x = floor(px + forward_x * settings["distance"])
+    center_z = floor(pz + forward_z * settings["distance"])
+
+    width = settings["width"]
+    height = settings["height"]
+    opening_width = settings["opening_width"]
+    opening_height = settings["opening_height"]
+    block = settings["block"]
+
+    if abs(forward_x) > abs(forward_z):
+        columns = [
+            (center_x, center_z + i - width // 2)
+            for i in range(width)
+        ]
+    else:
+        columns = [
+            (center_x + i - width // 2, center_z)
+            for i in range(width)
+        ]
+
+    opening_start = (width - opening_width) // 2
+    opening_end = opening_start + opening_width
+
+    print(f"Building gate: {settings['name']}")
+    print(f"Player: ({px:.1f}, {py:.1f}, {pz:.1f})")
+    print(f"Gate center: ({center_x}, {center_z})")
+    print(
+        f"Dimensions: {width} x {height}; "
+        f"opening: {opening_width} x {opening_height}"
+    )
+
+    built = 0
+
+    for i, (x, z) in enumerate(columns):
+        ground_y = find_ground(
+            mc,
+            x,
+            z,
+            py,
+            settings["search_above"],
+            settings["search_below"],
+        )
+
+        if ground_y is None:
+            print(f"Skipping ({x}, {z}): ground not found")
+            continue
+
+        base_y = ground_y + 1
+        top_y = base_y + height - 1
+
+        if opening_start <= i < opening_end:
+            # Leave the opening clear and place only the lintel.
+            lintel_y = base_y + opening_height
+
+            result = mc.command(
+                f"setblock {x} {lintel_y} {z} {block}"
+            )
+
+            success = (
+                "block placed" in result.lower()
+                or "block updated" in result.lower()
+                or "no change" in result.lower()
+            )
+        else:
+            # Build a full-height side section.
+            result = mc.command(
+                f"fill {x} {base_y} {z} "
+                f"{x} {top_y} {z} {block}"
+            )
+
+            success = "successfully filled" in result.lower()
+
+        if success:
+            built += 1
+        else:
+            print(f"Column ({x}, {z}): {result}")
+
+    print(f"Finished: {built} of {width} columns built.")
+    return 0 if built == width else 1
